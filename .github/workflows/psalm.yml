@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 iurFRIEND and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Static analysis
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psalm-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+
+    name: static-psalm-analysis
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Get php version
+        id: versions
+        uses: icewind1991/nextcloud-version-matrix@8a7bac6300b2f0f3100088b297995a229558ddba # v1.3.2
+
+      - name: Check enforcement of minimum PHP version ${{ steps.versions.outputs.php-min }} in psalm.xml
+        run: grep 'phpVersion="${{ steps.versions.outputs.php-min }}' psalm.xml
+
+      - name: Set up php ${{ steps.versions.outputs.php-min }}
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ steps.versions.outputs.php-min }}
+          extensions: ctype, curl, dom, fileinfo, gd, iconv, intl, json, libxml, mbstring, openssl, session, simplexml, xmlreader, xmlwriter, zip, zlib
+          coverage: none
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run psalm
+        run: composer run psalm -- --monochrome --no-progress --output-format=github

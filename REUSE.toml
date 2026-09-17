@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 iurFRIEND and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+version = 1
+SPDX-PackageName = "openrouter_connector"
+SPDX-PackageSupplier = "iurFRIEND <it@iurfriend.com>"
+SPDX-PackageDownloadLocation = "https://github.com/iurFRIEND/nextcloud-openrouter-connector"
+
+[[annotations]]
+path = ["composer.json", "composer.lock", "package.json", "package-lock.json", "l10n/**", "screenshots/**", "tests/psalm-baseline.xml"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 iurFRIEND and contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = ["README.md", "CHANGELOG.md", "AUTHORS.md", "CONTRIBUTING.md", "SECURITY.md"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 iurFRIEND and contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

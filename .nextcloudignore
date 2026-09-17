@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 iurFRIEND and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+.git
+.github
+.gitattributes
+.gitignore
+.editorconfig
+.eslintrc.cjs
+.l10nignore
+.nextcloudignore
+.php-cs-fixer.*
+.idea
+.vscode
+/build
+/composer.*
+/krankerl.toml
+/Makefile
+/node_modules
+/package-lock.json
+/package.json
+/psalm.xml
+/screenshots
+/src
+/stylelint.config.*
+/vendor
+/vite.config.*
+tests
+# source maps are only needed for development
+js/*.map

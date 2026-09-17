@@ -1,0 +1,50 @@
+{
+  "name": "openrouter_connector",
+  "version": "0.1.0",
+  "description": "Connect the Nextcloud Assistant to hundreds of AI models through OpenRouter",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "author": "iurFRIEND",
+  "homepage": "https://github.com/iurFRIEND/nextcloud-openrouter-connector",
+  "bugs": {
+    "url": "https://github.com/iurFRIEND/nextcloud-openrouter-connector/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iurFRIEND/nextcloud-openrouter-connector.git"
+  },
+  "scripts": {
+    "build": "NODE_ENV=production vite --mode production build",
+    "dev": "NODE_ENV=development vite --mode development build",
+    "watch": "NODE_ENV=development vite --mode development build --watch",
+    "lint": "eslint --ext .js,.vue src",
+    "lint:fix": "eslint --ext .js,.vue src --fix",
+    "stylelint": "stylelint src/**/*.vue src/**/*.css",
+    "stylelint:fix": "stylelint src/**/*.vue src/**/*.css --fix"
+  },
+  "browserslist": [
+    "extends @nextcloud/browserslist-config"
+  ],
+  "engines": {
+    "node": "^24.0.0",
+    "npm": "^11.0.0"
+  },
+  "dependencies": {
+    "@nextcloud/axios": "^2.6.0",
+    "@nextcloud/dialogs": "^7.5.0",
+    "@nextcloud/initial-state": "^3.0.0",
+    "@nextcloud/l10n": "^3.4.1",
+    "@nextcloud/password-confirmation": "^6.1.0",
+    "@nextcloud/router": "^3.2.0",
+    "@nextcloud/vue": "^9.12.0",
+    "debounce": "^3.0.0",
+    "vue": "^3.5.43"
+  },
+  "devDependencies": {
+    "@nextcloud/browserslist-config": "^3.1.2",
+    "@nextcloud/eslint-config": "^8.4.2",
+    "@nextcloud/stylelint-config": "^3.2.2",
+    "@nextcloud/vite-config": "^2.5.4"
+  }
+}

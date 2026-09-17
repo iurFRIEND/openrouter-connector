@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 iurFRIEND and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# compiled frontend
+js/
+vendor/
+node_modules/
