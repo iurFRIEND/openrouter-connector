@@ -41,7 +41,8 @@ class ModelCatalogService {
 			throw new \InvalidArgumentException('Unknown modality ' . $modality);
 		}
 		$cache = $this->cacheFactory->createDistributed(Application::APP_ID . '-catalog');
-		$cacheKey = 'models-' . $modality;
+		// each endpoint offers its own set of models, so they are cached apart
+		$cacheKey = 'models-' . $modality . '-' . $this->settings->getApiEndpoint();
 		if (!$refresh) {
 			$cached = $cache->get($cacheKey);
 			if (is_array($cached)) {
@@ -150,7 +151,21 @@ class ModelCatalogService {
 				$models[] = $entry;
 			}
 		}
-		return $models;
+		if ($this->settings->getApiEndpoint() === Application::API_ENDPOINT_GLOBAL) {
+			return $models;
+		}
+		// Unlike "models", the dedicated "images/models" list is not narrowed
+		// down to what a regional endpoint has onboarded, so the two are
+		// intersected here. A regional endpoint fails a request rather than
+		// routing it out of its region, so the models it does not carry would
+		// only end up as providers that cannot answer.
+		$inRegion = [];
+		foreach ($this->api->listModels(['output_modalities' => 'image']) as $raw) {
+			if (is_string($raw['id'] ?? null)) {
+				$inRegion[$raw['id']] = true;
+			}
+		}
+		return array_values(array_filter($models, static fn (array $entry): bool => isset($inRegion[$entry['id']])));
 	}
 
 	/**

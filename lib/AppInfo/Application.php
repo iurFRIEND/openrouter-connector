@@ -21,6 +21,20 @@ class Application extends App implements IBootstrap {
 
 	public const API_BASE_URL = 'https://openrouter.ai/api/v1';
 	public const USER_AGENT = 'Nextcloud OpenRouter Connector';
+
+	/**
+	 * The OpenRouter endpoints the admin can choose between. The regional
+	 * endpoint decrypts and processes prompts and completions inside its
+	 * region only ("in-region routing"), which needs a Business or
+	 * Enterprise plan and offers only the models onboarded for that region.
+	 */
+	public const API_ENDPOINT_GLOBAL = 'global';
+	public const API_ENDPOINT_EU = 'eu';
+	public const API_BASE_URLS = [
+		self::API_ENDPOINT_GLOBAL => self::API_BASE_URL,
+		self::API_ENDPOINT_EU => 'https://eu.openrouter.ai/api/v1',
+	];
+	public const DEFAULT_API_ENDPOINT = self::API_ENDPOINT_GLOBAL;
 	/** Sent as X-Title so the app shows up by name in the OpenRouter activity view */
 	public const X_TITLE = 'Nextcloud OpenRouter Connector';
 

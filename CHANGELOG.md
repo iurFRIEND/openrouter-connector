@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Choice between OpenRouter's standard endpoint (`openrouter.ai`, the default) and its EU endpoint
+  (`eu.openrouter.ai`), which keeps prompts and completions inside the European Union (in-region routing).
+  The model catalog is loaded and cached per endpoint, and selected models that the current endpoint does not
+  offer are flagged in the admin settings.
+
 ## 0.1.0 - 2026-09-21
 
 ### Added

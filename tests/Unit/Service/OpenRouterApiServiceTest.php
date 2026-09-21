@@ -160,6 +160,13 @@ class OpenRouterApiServiceTest extends TestCase {
 		$this->assertSame([['type' => 'function']], $body['tools']);
 	}
 
+	public function testRequestsGoToTheSelectedEndpoint(): void {
+		$this->store['api_endpoint'] = 'eu';
+		$this->respondWith(['choices' => [['message' => ['content' => 'ok']]]]);
+		$this->api->createChatCompletion('m', [['role' => 'user', 'content' => 'x']]);
+		$this->assertSame('https://eu.openrouter.ai/api/v1/chat/completions', $this->requests[0]['url']);
+	}
+
 	public function testRefererIsSentWhenEnabled(): void {
 		$this->store['send_referer'] = true;
 		$this->respondWith(['choices' => [['message' => ['content' => 'ok']]]]);

@@ -219,7 +219,7 @@ class OpenRouterApiService {
 			);
 		}
 
-		$url = Application::API_BASE_URL . '/' . ltrim($endpoint, '/');
+		$url = $this->settings->getApiBaseUrl() . '/' . ltrim($endpoint, '/');
 		$headers = [
 			'User-Agent' => Application::USER_AGENT,
 			'X-Title' => Application::X_TITLE,

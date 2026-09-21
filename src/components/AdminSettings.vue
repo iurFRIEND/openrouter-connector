@@ -16,6 +16,30 @@
 			</a>
 		</NcNoteCard>
 
+		<h3>{{ t('openrouter_connector', 'API endpoint') }}</h3>
+		<p class="hint">
+			{{ t('openrouter_connector', 'Where the requests are sent. The EU endpoint decrypts and processes prompts and completions inside the European Union only (in-region routing). It needs an OpenRouter Business or Enterprise plan and offers only the models OpenRouter has onboarded for the EU, so the model lists below are considerably shorter.') }}
+			<a class="external"
+				href="https://openrouter.ai/docs/guides/features/in-region-routing"
+				target="_blank"
+				rel="noopener noreferrer">
+				{{ t('openrouter_connector', 'OpenRouter in-region routing documentation') }}
+			</a>
+		</p>
+		<NcCheckboxRadioSwitch v-for="endpoint in endpoints"
+			:key="endpoint.id"
+			:model-value="state.api_endpoint"
+			:value="endpoint.id"
+			:disabled="switchingEndpoint"
+			name="openrouter-api-endpoint"
+			type="radio"
+			@update:model-value="onEndpointChange">
+			{{ endpoint.label }}
+		</NcCheckboxRadioSwitch>
+		<p class="hint">
+			{{ t('openrouter_connector', 'All requests go to {url}', { url: state.api_base_url }) }}
+		</p>
+
 		<h3>{{ t('openrouter_connector', 'Authentication') }}</h3>
 		<p class="hint">
 			{{ t('openrouter_connector', 'Create an API key in your OpenRouter account and paste it here. The key is stored encrypted.') }}
@@ -111,6 +135,12 @@
 				{{ t('openrouter_connector', 'Refresh model details') }}
 			</NcButton>
 		</div>
+		<NcNoteCard v-if="unavailableModels.length > 0" type="warning">
+			{{ n('openrouter_connector',
+				'This model is not available on the selected endpoint, tasks using it will fail: {models}',
+				'These models are not available on the selected endpoint, tasks using them will fail: {models}',
+				unavailableModels.length, { models: unavailableModels.join(', ') }) }}
+		</NcNoteCard>
 		<p v-if="selectedModelCount > 0" class="hint">
 			{{ n('openrouter_connector', '%n model selected. The providers are listed in the Artificial Intelligence settings.', '%n models selected. The providers are listed in the Artificial Intelligence settings.', selectedModelCount) }}
 			<a class="external"
@@ -234,6 +264,7 @@ export default {
 		return {
 			state: loadState('openrouter_connector', 'admin-config'),
 			apiKey: '',
+			switchingEndpoint: false,
 			savingKey: false,
 			checkingKey: false,
 			keyInfo: null,
@@ -248,6 +279,12 @@ export default {
 	},
 
 	computed: {
+		endpoints() {
+			return [
+				{ id: 'global', label: t('openrouter_connector', 'Standard endpoint (openrouter.ai)') },
+				{ id: 'eu', label: t('openrouter_connector', 'EU endpoint (eu.openrouter.ai)') },
+			]
+		},
 		modalities() {
 			return [
 				{
@@ -277,6 +314,34 @@ export default {
 		},
 		selectedModelCount() {
 			return Object.values(MODEL_KEYS).reduce((count, key) => count + (this.state[key]?.length ?? 0), 0)
+		},
+		/**
+		 * The selected models the catalog of a regional endpoint does not
+		 * carry. Its catalog is the list of what the region can route, so a
+		 * model missing from it cannot answer. On the standard endpoint the
+		 * catalog is not authoritative that way — model IDs may deliberately
+		 * be typed in — so nothing is flagged there. A catalog that could not
+		 * be loaded is skipped, so a failed request does not flag every model.
+		 *
+		 * @return {string[]} the model IDs
+		 */
+		unavailableModels() {
+			if (this.state.api_endpoint === 'global') {
+				return []
+			}
+			const missing = new Set()
+			for (const key of Object.values(MODEL_KEYS)) {
+				if (!this.catalog[key]?.length) {
+					continue
+				}
+				const available = new Set(this.catalog[key].map(model => model.id))
+				for (const id of this.state[key] ?? []) {
+					if (!available.has(id)) {
+						missing.add(id)
+					}
+				}
+			}
+			return [...missing]
 		},
 		/** The voices of the selected text-to-speech models, as far as they are known */
 		voiceOptions() {
@@ -391,6 +456,31 @@ export default {
 				this.catalogError = t('openrouter_connector', 'Failed to load the OpenRouter model list. Model IDs can still be typed in.') + ' ' + this.errorMessage(error, '')
 			} finally {
 				this.loadingCatalog[key] = false
+			}
+		},
+
+		/**
+		 * Stores the endpoint without waiting for the debounce and reloads
+		 * everything that depends on it: the catalogs differ per endpoint and
+		 * the connection was checked against the previous one
+		 *
+		 * @param {string} endpoint the ID of the selected endpoint
+		 */
+		async onEndpointChange(endpoint) {
+			if (endpoint === this.state.api_endpoint) {
+				return
+			}
+			this.state.api_endpoint = endpoint
+			this.pendingValues.api_endpoint = endpoint
+			this.debouncedSave.clear()
+			this.switchingEndpoint = true
+			this.keyInfo = null
+			this.keyError = null
+			try {
+				await this.saveValues()
+				await this.loadCatalog(true)
+			} finally {
+				this.switchingEndpoint = false
 			}
 		},
 

@@ -19,6 +19,7 @@ use OCP\IAppConfig;
  */
 class SettingsService {
 	public const KEY_API_KEY = 'api_key';
+	public const KEY_API_ENDPOINT = 'api_endpoint';
 	public const KEY_MODEL_METADATA = 'model_metadata';
 	public const KEY_TTS_VOICE = 'tts_voice';
 	public const KEY_MAX_TOKENS = 'max_tokens';
@@ -60,6 +61,21 @@ class SettingsService {
 
 	public function hasApiKey(): bool {
 		return $this->getApiKey() !== '';
+	}
+
+	/**
+	 * The selected OpenRouter endpoint, one of the keys of Application::API_BASE_URLS
+	 */
+	public function getApiEndpoint(): string {
+		$endpoint = $this->appConfig->getValueString(Application::APP_ID, self::KEY_API_ENDPOINT, Application::DEFAULT_API_ENDPOINT);
+		return isset(Application::API_BASE_URLS[$endpoint]) ? $endpoint : Application::DEFAULT_API_ENDPOINT;
+	}
+
+	/**
+	 * The base URL every API request is sent to
+	 */
+	public function getApiBaseUrl(): string {
+		return Application::API_BASE_URLS[$this->getApiEndpoint()];
 	}
 
 	/**
@@ -235,6 +251,8 @@ class SettingsService {
 	public function getAdminConfig(): array {
 		$config = [
 			'api_key_set' => $this->hasApiKey(),
+			self::KEY_API_ENDPOINT => $this->getApiEndpoint(),
+			'api_base_url' => $this->getApiBaseUrl(),
 			'model_metadata' => $this->getModelMetadata(),
 			self::KEY_TTS_VOICE => $this->getTtsVoice(),
 			self::KEY_MAX_TOKENS => $this->getMaxTokens(),
@@ -256,10 +274,23 @@ class SettingsService {
 	 * Unknown keys are ignored, values are validated and clamped.
 	 *
 	 * @param array<string, mixed> $values
-	 * @return bool whether the model selection changed
+	 * @return bool whether the model metadata has to be looked up again, because
+	 *              the model selection or the endpoint they come from changed
 	 */
 	public function setAdminConfig(array $values): bool {
 		$selectionChanged = false;
+		if (array_key_exists(self::KEY_API_ENDPOINT, $values)) {
+			$endpoint = is_string($values[self::KEY_API_ENDPOINT]) ? $values[self::KEY_API_ENDPOINT] : '';
+			if (!isset(Application::API_BASE_URLS[$endpoint])) {
+				$endpoint = Application::DEFAULT_API_ENDPOINT;
+			}
+			if ($endpoint !== $this->getApiEndpoint()) {
+				$this->appConfig->setValueString(Application::APP_ID, self::KEY_API_ENDPOINT, $endpoint);
+				// each endpoint offers its own set of models, so what is known
+				// about the selected ones no longer applies
+				$selectionChanged = true;
+			}
+		}
 		foreach (self::MODEL_KEYS as $modality => $key) {
 			if (!array_key_exists($key, $values)) {
 				continue;

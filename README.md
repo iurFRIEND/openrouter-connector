@@ -70,12 +70,37 @@ the repository name. The ID is also fixed by the issued code signing certificate
 ## Configuration
 
 1. Open **Administration settings → Artificial Intelligence** and find the **OpenRouter Connector** section.
-2. Paste your OpenRouter API key and save it. The key is stored encrypted in the app configuration.
+2. Choose the **API endpoint**. The standard endpoint is used by default; see [API endpoint](#api-endpoint) below.
+3. Paste your OpenRouter API key and save it. The key is stored encrypted in the app configuration.
    Use **Check connection** to verify it.
-3. Select the models you want to expose, per modality (text, image generation, speech-to-text, text-to-speech).
+4. Select the models you want to expose, per modality (text, image generation, speech-to-text, text-to-speech).
    The lists are loaded from the OpenRouter catalog; model IDs that are not listed can be typed in.
-4. In the **Artificial Intelligence** section above, pick the OpenRouter provider you want for each task type.
+5. In the **Artificial Intelligence** section above, pick the OpenRouter provider you want for each task type.
    The providers are named after the model, for example *OpenAI: GPT-5 Mini (OpenRouter)*.
+
+### API endpoint
+
+| Option | Base URL |
+| --- | --- |
+| Standard endpoint (default) | `https://openrouter.ai/api/v1` |
+| EU endpoint | `https://eu.openrouter.ai/api/v1` |
+
+The EU endpoint uses OpenRouter's [in-region routing](https://openrouter.ai/docs/guides/features/in-region-routing):
+the request is decrypted inside the European Union and is only routed to provider endpoints in that region, so prompts
+and completions never leave it. A few things to keep in mind:
+
+* In-region routing requires an OpenRouter **Business or Enterprise** plan.
+* Only the models OpenRouter has onboarded for the EU are available, which are far fewer than on the standard
+  endpoint — at the time of writing 57 text models instead of 446, one speech-to-text and one text-to-speech model,
+  and no image generation models at all. The model lists in the settings are loaded from the selected endpoint, and
+  already selected models that the endpoint does not offer are flagged with a warning: tasks using them fail rather
+  than being routed out of the region.
+* The dedicated `images/models` list of the OpenRouter API answers the same on every endpoint, so on a regional
+  endpoint the app intersects it with that region's catalog itself. The other lists are narrowed down by
+  OpenRouter.
+
+Switching the endpoint saves immediately, reloads the model catalogs and looks up the details of the selected models
+again. The model catalog is cached for an hour per endpoint.
 
 ### Privacy options
 

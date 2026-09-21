@@ -30,8 +30,10 @@ The [Assistant app](https://apps.nextcloud.com/apps/assistant) is required to us
 ## Privacy
 
 All requests are sent to the OpenRouter API (`openrouter.ai`), which routes them to the upstream model providers.
-The admin settings offer OpenRouter's routing options to restrict requests to providers that do not store or train on
-your data (`data_collection: deny`) and to zero-data-retention providers. Please review the
+Administrators can switch to OpenRouter's EU endpoint (`eu.openrouter.ai`) instead, which processes prompts and
+completions inside the European Union only. The admin settings offer OpenRouter's routing options to restrict requests
+to providers that do not store or train on your data (`data_collection: deny`) and to zero-data-retention providers.
+Please review the
 [OpenRouter privacy documentation](https://openrouter.ai/docs/guides/privacy/provider-logging) and the terms of the
 model providers you select.
 

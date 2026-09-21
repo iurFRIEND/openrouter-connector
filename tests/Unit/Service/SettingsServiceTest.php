@@ -23,6 +23,29 @@ class SettingsServiceTest extends TestCase {
 		$this->assertSame(Application::DEFAULT_CHUNK_SIZE, $settings->getChunkSize());
 		$this->assertFalse($settings->isDataCollectionDenied());
 		$this->assertSame(Application::DEFAULT_RUNTIMES[Application::MODALITY_IMAGE], $settings->getExpectedRuntime(Application::MODALITY_IMAGE));
+		$this->assertSame(Application::API_ENDPOINT_GLOBAL, $settings->getApiEndpoint());
+		$this->assertSame(Application::API_BASE_URL, $settings->getApiBaseUrl());
+	}
+
+	public function testApiEndpointIsSelectableAndValidated(): void {
+		$store = [];
+		$settings = $this->createSettings($store);
+
+		$this->assertTrue($settings->setAdminConfig(['api_endpoint' => Application::API_ENDPOINT_EU]), 'the model metadata has to be looked up again');
+		$this->assertSame(Application::API_ENDPOINT_EU, $settings->getApiEndpoint());
+		$this->assertSame('https://eu.openrouter.ai/api/v1', $settings->getApiBaseUrl());
+		$this->assertSame(Application::API_ENDPOINT_EU, $settings->getAdminConfig()['api_endpoint']);
+		$this->assertSame('https://eu.openrouter.ai/api/v1', $settings->getAdminConfig()['api_base_url']);
+
+		$this->assertFalse($settings->setAdminConfig(['api_endpoint' => Application::API_ENDPOINT_EU]), 'the same endpoint is not a change');
+
+		// an unknown endpoint falls back to the default instead of being stored
+		$this->assertTrue($settings->setAdminConfig(['api_endpoint' => 'https://evil.example.org/v1']));
+		$this->assertSame(Application::API_ENDPOINT_GLOBAL, $settings->getApiEndpoint());
+		$this->assertSame(Application::API_BASE_URL, $settings->getApiBaseUrl());
+
+		$store['api_endpoint'] = 'gone';
+		$this->assertSame(Application::API_ENDPOINT_GLOBAL, $settings->getApiEndpoint(), 'a stored value that is no longer known falls back too');
 	}
 
 	public function testApiKeyIsStoredAndRemoved(): void {
