@@ -1,18 +1,18 @@
 {
-  "name": "openrouter_connector",
+  "name": "openrouter-connector",
   "version": "0.1.0",
   "description": "Connect the Nextcloud Assistant to hundreds of AI models through OpenRouter",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "author": "iurFRIEND",
-  "homepage": "https://github.com/iurFRIEND/nextcloud-openrouter-connector",
+  "homepage": "https://github.com/iurFRIEND/openrouter-connector",
   "bugs": {
-    "url": "https://github.com/iurFRIEND/nextcloud-openrouter-connector/issues"
+    "url": "https://github.com/iurFRIEND/openrouter-connector/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/iurFRIEND/nextcloud-openrouter-connector.git"
+    "url": "https://github.com/iurFRIEND/openrouter-connector.git"
   },
   "scripts": {
     "build": "NODE_ENV=production vite --mode production build",

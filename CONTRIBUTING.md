@@ -6,7 +6,7 @@
 
 Thank you for considering a contribution!
 
-- Open an issue for bugs and feature requests: <https://github.com/iurFRIEND/nextcloud-openrouter-connector/issues>
+- Open an issue for bugs and feature requests: <https://github.com/iurFRIEND/openrouter-connector/issues>
 - Fork the repository and create a branch from `main` (`fix/...`, `feature/...`, `docs/...`).
 - Run `make lint` and `make test` before opening a pull request. The CI runs the same checks.
 - Every file needs an SPDX header with the copyright text and the AGPL-3.0-or-later licence identifier,

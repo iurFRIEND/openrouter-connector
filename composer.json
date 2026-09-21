@@ -1,5 +1,5 @@
 {
-	"name": "iurfriend/openrouter_connector",
+	"name": "iurfriend/openrouter-connector",
 	"description": "Connect the Nextcloud Assistant to hundreds of AI models through OpenRouter",
 	"type": "project",
 	"license": "AGPL-3.0-or-later",

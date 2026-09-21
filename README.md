@@ -4,7 +4,7 @@
 -->
 # OpenRouter Connector for Nextcloud
 
-[![REUSE status](https://api.reuse.software/badge/github.com/iurFRIEND/nextcloud-openrouter-connector)](https://api.reuse.software/info/github.com/iurFRIEND/nextcloud-openrouter-connector)
+[![REUSE status](https://api.reuse.software/badge/github.com/iurFRIEND/openrouter-connector)](https://api.reuse.software/info/github.com/iurFRIEND/openrouter-connector)
 
 Connect the Nextcloud Assistant to hundreds of AI models through [OpenRouter](https://openrouter.ai), a unified API
 for large language, image, speech-to-text and text-to-speech models from many providers, with a single API key.
@@ -49,13 +49,23 @@ Install **OpenRouter Connector** from the Nextcloud App Store (category *Integra
 
 ```bash
 cd /path/to/nextcloud/custom_apps
-git clone https://github.com/iurFRIEND/nextcloud-openrouter-connector.git openrouter_connector
+git clone https://github.com/iurFRIEND/openrouter-connector.git openrouter_connector
 cd openrouter_connector
 make build            # npm ci && npm run build
 sudo -u www-data php ../../occ app:enable openrouter_connector
 ```
 
-The app folder must be named `openrouter_connector` (the app ID).
+The app folder must be named `openrouter_connector`, because Nextcloud requires it to match the app ID.
+
+### A note on the two spellings
+
+| Where | Name |
+| --- | --- |
+| Repository, website, package names | `openrouter-connector` |
+| App ID, app folder, app config keys, provider IDs, translation domain | `openrouter_connector` |
+
+The App Store restricts app IDs to lowercase letters, digits and underscores, so the ID cannot carry the hyphen of
+the repository name. The ID is also fixed by the issued code signing certificate and cannot be changed afterwards.
 
 ## Configuration
 
