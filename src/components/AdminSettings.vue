@@ -5,7 +5,7 @@
 <template>
 	<NcSettingsSection :name="t('openrouter_connector', 'OpenRouter Connector')"
 		:description="t('openrouter_connector', 'Connect the Assistant to hundreds of AI models through OpenRouter. Every selected model becomes a provider that can be picked per task in the Artificial Intelligence settings.')"
-		doc-url="https://github.com/iurFRIEND/nextcloud-openrouter-connector#readme">
+		doc-url="https://github.com/iurFRIEND/openrouter-connector#readme">
 		<NcNoteCard v-if="!state.assistant_enabled" type="warning">
 			{{ t('openrouter_connector', 'The Assistant app is not enabled. It is needed to use the features provided by this app.') }}
 			<a class="external"
