@@ -11,13 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- Rate limits and unavailable providers that OpenRouter reports with a 200 status and an `error` object in the body
-  (for example a model that is temporarily rate-limited upstream) are now retried like HTTP 429/503 responses instead
-  of failing the task immediately.
-
-## 0.1.0 - 2026-09-17
+## 0.1.0 - 2026-09-21
 
 ### Added
 
@@ -28,3 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Admin settings with encrypted API key storage, connection check, searchable model catalog per modality,
   privacy routing options (`data_collection: deny`, zero data retention, optional referer) and advanced options
   (maximum output tokens, request timeout, chunk size, default voice).
+- Rate limits and unavailable providers are retried in background workers, honouring the `Retry-After` header.
+  This also covers the errors that OpenRouter reports with a 200 status and an `error` object in the body, for
+  example a model that is temporarily rate-limited upstream.
