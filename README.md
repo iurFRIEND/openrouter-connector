@@ -25,7 +25,8 @@ so different models can be assigned to different tasks in the **Artificial Intel
 
 Further features:
 
-* Model catalog with search in the admin settings, unknown model IDs can be typed in
+* Model catalog with search in the admin settings, narrowed down to the models the current settings can actually
+  reach; unknown model IDs can be typed in
 * Privacy options: restrict routing to providers that do not store or train on prompts (`data_collection: deny`)
   and to zero data retention endpoints
 * Connection check showing the label, usage and limit of the configured key
@@ -74,7 +75,8 @@ the repository name. The ID is also fixed by the issued code signing certificate
 3. Paste your OpenRouter API key and save it. The key is stored encrypted in the app configuration.
    Use **Check connection** to verify it.
 4. Select the models you want to expose, per modality (text, image generation, speech-to-text, text-to-speech).
-   The lists are loaded from the OpenRouter catalog; model IDs that are not listed can be typed in.
+   The lists are loaded from the OpenRouter catalog and only offer what the current settings can reach; see
+   [Which models are offered](#which-models-are-offered) below. Model IDs that are not listed can be typed in.
 5. In the **Artificial Intelligence** section above, pick the OpenRouter provider you want for each task type.
    The providers are named after the model, for example *OpenAI: GPT-5 Mini (OpenRouter)*.
 
@@ -92,26 +94,49 @@ and completions never leave it. A few things to keep in mind:
 * In-region routing requires an OpenRouter **Business or Enterprise** plan.
 * Only the models OpenRouter has onboarded for the EU are available, which are far fewer than on the standard
   endpoint — at the time of writing 57 text models instead of 446, one speech-to-text and one text-to-speech model,
-  and no image generation models at all. The model lists in the settings are loaded from the selected endpoint, and
-  already selected models that the endpoint does not offer are flagged with a warning: tasks using them fail rather
-  than being routed out of the region.
-* The dedicated `images/models` list of the OpenRouter API answers the same on every endpoint, so on a regional
-  endpoint the app intersects it with that region's catalog itself. The other lists are narrowed down by
-  OpenRouter.
+  and no image generation models at all. Tasks using a model the region does not carry fail rather than being
+  routed out of the region.
 
 Switching the endpoint saves immediately, reloads the model catalogs and looks up the details of the selected models
-again. The model catalog is cached for an hour per endpoint.
+again.
+
+### Which models are offered
+
+The model lists only contain the models the current settings can actually use, so that a model cannot be selected
+that every request would fail on:
+
+| Setting | How the lists are narrowed down |
+| --- | --- |
+| EU endpoint | The lists come from `eu.openrouter.ai`, which only answers with the models onboarded for the region |
+| Only use zero data retention endpoints | `models?zdr=true`, which leaves the models that have at least one such endpoint (318 of 446 text models at the time of writing) |
+| API key | `models/user`, the catalog as OpenRouter narrows it down for the privacy settings of the account and the [guardrails](https://openrouter.ai/docs/guides/features/guardrails) of the key |
+
+A few details worth knowing:
+
+* The dedicated `images/models` list of the OpenRouter API carries neither the region nor the filters, so the app
+  intersects it with the general list itself when either applies.
+* `data_collection: deny` has no counterpart in the model API, so the lists are not narrowed down by it. A model
+  whose providers all store prompts fails the request instead.
+* A lookup that fails — an unreachable API, a key that may not read `models/user` — leaves the lists as they are
+  rather than emptying them, and the settings then do not claim that a model is unavailable.
+* Selected models that the current settings rule out are flagged with a warning and can be removed in one click.
+  They are kept otherwise, because a model ID typed in by hand is a deliberate choice.
+* The lists are cached for an hour per combination of endpoint, filters and key. **Reload model list** fetches
+  them again; changing the endpoint, the zero data retention option or the key does so by itself.
 
 ### Privacy options
 
 OpenRouter routes each request to one of the providers hosting a model. In the **Privacy** section you can:
 
 * only use providers that do not store or train on prompts (`data_collection: deny`),
-* only use zero data retention endpoints (`zdr`),
+* only use zero data retention endpoints (`zdr`), which also narrows the model lists down to the models that have
+  such an endpoint,
 * opt in to sending the address of your instance as `HTTP-Referer` for OpenRouter's usage attribution
   (off by default; the app always identifies itself with the `X-Title` header).
 
-These routing preferences apply to text tasks (chat completions). Please review the
+These routing preferences are sent with text tasks (chat completions); the dedicated image, transcription and
+speech APIs do not accept them, so for those modalities only what is configured in the OpenRouter account applies.
+Please review the
 [OpenRouter privacy documentation](https://openrouter.ai/docs/guides/privacy/provider-logging) and the terms of
 the model providers you select.
 
@@ -140,9 +165,9 @@ sudo -u www-data php occ background-job:worker 'OC\TaskProcessing\SynchronousBac
 * Provider IDs are derived from the model ID and the task type (`openrouter_connector-<model>-<task type>`), so the
   assignments in the AI settings survive restarts and updates.
 * `lib/Service/OpenRouterApiService.php` talks to the OpenRouter API (`chat/completions`, `images`,
-  `audio/transcriptions`, `audio/speech`, `models`, `key`) using Nextcloud's HTTP client.
-* `lib/Service/ModelCatalogService.php` loads and caches the model catalog and stores the names and
-  capabilities of the selected models, so no network request is needed to build the providers.
+  `audio/transcriptions`, `audio/speech`, `models`, `models/user`, `key`) using Nextcloud's HTTP client.
+* `lib/Service/ModelCatalogService.php` loads and caches the model catalog per endpoint, filter and key, and stores
+  the names and capabilities of the selected models, so no network request is needed to build the providers.
 
 ## Development
 

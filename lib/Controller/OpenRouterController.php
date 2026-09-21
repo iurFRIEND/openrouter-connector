@@ -34,7 +34,8 @@ class OpenRouterController extends Controller {
 	}
 
 	/**
-	 * The models available for a modality
+	 * The models available for a modality, together with the filters that
+	 * narrowed the list down, so the settings can say why a model is missing
 	 *
 	 * @param string $modality one of text, image, stt, tts
 	 * @param bool $refresh whether to bypass the cache
@@ -44,7 +45,7 @@ class OpenRouterController extends Controller {
 			return new DataResponse(['error' => 'Unknown modality'], Http::STATUS_BAD_REQUEST);
 		}
 		try {
-			return new DataResponse($this->modelCatalog->getModels($modality, $refresh));
+			return new DataResponse($this->modelCatalog->getCatalog($modality, $refresh));
 		} catch (OpenRouterApiException $e) {
 			return new DataResponse(['error' => $e->getUserFacingMessage() ?? $e->getMessage()], $this->errorStatus($e));
 		} catch (\Throwable $e) {

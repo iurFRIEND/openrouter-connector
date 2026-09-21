@@ -63,7 +63,7 @@ Negative:
 
 Learn more about the Nextcloud Ethical AI Rating [in the Nextcloud blog](https://nextcloud.com/blog/nextcloud-ethical-ai-rating/).
 ]]></description>
-	<version>0.1.0</version>
+	<version>0.2.0</version>
 	<licence>agpl</licence>
 	<author mail="it@iurfriend.com" homepage="https://www.iurfriend.com">iurFRIEND</author>
 	<namespace>OpenRouterConnector</namespace>

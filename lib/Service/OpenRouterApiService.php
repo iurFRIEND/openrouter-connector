@@ -166,6 +166,21 @@ class OpenRouterApiService {
 	}
 
 	/**
+	 * The models the configured API key may actually use: the catalog as
+	 * OpenRouter narrows it down for the account's provider preferences and
+	 * privacy settings, for the guardrails of the key, and for the region of
+	 * a regional endpoint
+	 *
+	 * @param array<string, string> $query for example ['output_modalities' => 'all']
+	 * @return list<array<string, mixed>>
+	 * @throws OpenRouterApiException
+	 */
+	public function listUserModels(array $query = []): array {
+		$response = $this->request('models/user', $query, 'GET');
+		return $this->extractList($response);
+	}
+
+	/**
 	 * The models of the dedicated image API
 	 *
 	 * @return list<array<string, mixed>>

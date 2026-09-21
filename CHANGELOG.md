@@ -11,12 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.2.0 - 2026-09-21
+
 ### Added
 
 - Choice between OpenRouter's standard endpoint (`openrouter.ai`, the default) and its EU endpoint
   (`eu.openrouter.ai`), which keeps prompts and completions inside the European Union (in-region routing).
   The model catalog is loaded and cached per endpoint, and selected models that the current endpoint does not
   offer are flagged in the admin settings.
+- The model lists only offer the models the current settings can actually use: those of the selected endpoint,
+  those with a zero data retention endpoint while that privacy option is on (`models?zdr=true`), and those the
+  configured API key may use according to the privacy settings and guardrails of the account (`models/user`).
+  The settings say which of these narrowed a list down, and selected models that they rule out are flagged and
+  can be removed in one click. A lookup that fails leaves the lists as they are instead of emptying them.
+
+### Changed
+
+- The model catalog is cached per combination of endpoint, filters and API key instead of per endpoint only, and
+  is reloaded when the zero data retention option or the API key changes.
 
 ## 0.1.0 - 2026-09-21
 

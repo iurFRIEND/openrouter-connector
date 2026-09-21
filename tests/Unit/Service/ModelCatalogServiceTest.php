@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\OpenRouterConnector\Tests\Unit\Service;
 
 use OCA\OpenRouterConnector\AppInfo\Application;
+use OCA\OpenRouterConnector\Exception\OpenRouterApiException;
 use OCA\OpenRouterConnector\Service\ModelCatalogService;
 use OCA\OpenRouterConnector\Service\OpenRouterApiService;
 use OCA\OpenRouterConnector\Tests\Unit\TestCase;
@@ -70,6 +71,74 @@ class ModelCatalogServiceTest extends TestCase {
 		$this->store['api_endpoint'] = Application::API_ENDPOINT_GLOBAL;
 		$this->assertSame(['a/one', 'b/two'], array_column($this->catalog->getModels(Application::MODALITY_TEXT), 'id'));
 		$this->assertCount(2, $this->cached);
+	}
+
+	public function testZeroDataRetentionIsAskedOfTheApiAndCachedOnItsOwn(): void {
+		$this->api->expects($this->exactly(2))->method('listModels')
+			->willReturnCallback(fn (array $query): array => $query === ['zdr' => 'true']
+				? self::rawModels(['a/one'])
+				: self::rawModels(['a/one', 'b/two']));
+
+		$this->assertSame(['a/one', 'b/two'], array_column($this->catalog->getModels(Application::MODALITY_TEXT), 'id'));
+		$this->store['zdr'] = true;
+		$this->assertSame(['a/one'], array_column($this->catalog->getModels(Application::MODALITY_TEXT), 'id'));
+		$this->assertSame([ModelCatalogService::FILTER_ZDR], $this->catalog->getCatalog(Application::MODALITY_TEXT)['filters']);
+	}
+
+	public function testZeroDataRetentionNarrowsDownTheImageModelsToo(): void {
+		$this->store['zdr'] = true;
+		$this->api->method('listImageModels')->willReturn(self::rawModels(['a/draw', 'b/paint'], 'image'));
+		$this->api->expects($this->once())->method('listModels')
+			->with(['output_modalities' => 'image', 'zdr' => 'true'])
+			->willReturn(self::rawModels(['b/paint'], 'image'));
+
+		$this->assertSame(['b/paint'], array_column($this->catalog->getModels(Application::MODALITY_IMAGE), 'id'));
+	}
+
+	public function testTheCatalogIsNarrowedDownToWhatTheKeyMayUse(): void {
+		$this->store['api_key'] = 'sk-or-v1-test';
+		$this->api->method('listModels')->willReturn(self::rawModels(['a/one', 'b/two']));
+		$this->api->expects($this->once())->method('listUserModels')
+			->with(['output_modalities' => 'all'])
+			->willReturn(self::rawModels(['b/two', 'c/three']));
+
+		$catalog = $this->catalog->getCatalog(Application::MODALITY_TEXT);
+		$this->assertSame(['b/two'], array_column($catalog['models'], 'id'));
+		$this->assertSame([ModelCatalogService::FILTER_KEY], $catalog['filters']);
+	}
+
+	public function testAFailedKeyLookupLeavesTheCatalogAlone(): void {
+		$this->store['api_key'] = 'sk-or-v1-test';
+		$this->api->method('listModels')->willReturn(self::rawModels(['a/one', 'b/two']));
+		$this->api->method('listUserModels')->willThrowException(new OpenRouterApiException('nope'));
+
+		$catalog = $this->catalog->getCatalog(Application::MODALITY_TEXT);
+		$this->assertSame(['a/one', 'b/two'], array_column($catalog['models'], 'id'));
+		$this->assertSame([], $catalog['filters'], 'a filter that could not be applied is not reported');
+	}
+
+	public function testAnEmptyKeyCatalogIsTreatedAsUnknown(): void {
+		$this->store['api_key'] = 'sk-or-v1-test';
+		$this->api->method('listModels')->willReturn(self::rawModels(['a/one']));
+		$this->api->method('listUserModels')->willReturn([]);
+
+		$catalog = $this->catalog->getCatalog(Application::MODALITY_TEXT);
+		$this->assertSame(['a/one'], array_column($catalog['models'], 'id'));
+		$this->assertSame([], $catalog['filters']);
+	}
+
+	public function testWithoutAKeyTheListIsNotNarrowedDown(): void {
+		$this->api->method('listModels')->willReturn(self::rawModels(['a/one']));
+		$this->api->expects($this->never())->method('listUserModels');
+
+		$this->assertSame([], $this->catalog->getCatalog(Application::MODALITY_TEXT)['filters']);
+	}
+
+	public function testTheRegionalEndpointIsReportedAsAFilter(): void {
+		$this->store['api_endpoint'] = Application::API_ENDPOINT_EU;
+		$this->api->method('listModels')->willReturn(self::rawModels(['a/one']));
+
+		$this->assertSame([ModelCatalogService::FILTER_ENDPOINT], $this->catalog->getCatalog(Application::MODALITY_TEXT)['filters']);
 	}
 
 	public function testImageModelsAreKeptWholeOnTheGlobalEndpoint(): void {

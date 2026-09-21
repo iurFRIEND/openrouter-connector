@@ -30,7 +30,7 @@
 			:key="endpoint.id"
 			:model-value="state.api_endpoint"
 			:value="endpoint.id"
-			:disabled="switchingEndpoint"
+			:disabled="reloadingCatalog"
 			name="openrouter-api-endpoint"
 			type="radio"
 			@update:model-value="onEndpointChange">
@@ -113,6 +113,11 @@
 				{{ t('openrouter_connector', 'Browse the OpenRouter models') }}
 			</a>
 		</p>
+		<ul v-if="activeFilterHints.length > 0" class="hint filter-hints">
+			<li v-for="hint in activeFilterHints" :key="hint">
+				{{ hint }}
+			</li>
+		</ul>
 		<NcNoteCard v-if="catalogError" type="warning">
 			{{ catalogError }}
 		</NcNoteCard>
@@ -137,9 +142,14 @@
 		</div>
 		<NcNoteCard v-if="unavailableModels.length > 0" type="warning">
 			{{ n('openrouter_connector',
-				'This model is not available on the selected endpoint, tasks using it will fail: {models}',
-				'These models are not available on the selected endpoint, tasks using them will fail: {models}',
+				'This model is not available with the current settings, tasks using it will fail: {models}',
+				'These models are not available with the current settings, tasks using them will fail: {models}',
 				unavailableModels.length, { models: unavailableModels.join(', ') }) }}
+			<div class="line">
+				<NcButton @click="removeUnavailableModels">
+					{{ n('openrouter_connector', 'Remove it from the selection', 'Remove them from the selection', unavailableModels.length) }}
+				</NcButton>
+			</div>
 		</NcNoteCard>
 		<p v-if="selectedModelCount > 0" class="hint">
 			{{ n('openrouter_connector', '%n model selected. The providers are listed in the Artificial Intelligence settings.', '%n models selected. The providers are listed in the Artificial Intelligence settings.', selectedModelCount) }}
@@ -166,11 +176,18 @@
 			@update:model-value="onInput({ data_collection_deny: $event })">
 			{{ t('openrouter_connector', 'Only use providers that do not store or train on prompts (data_collection: deny)') }}
 		</NcCheckboxRadioSwitch>
+		<p class="hint">
+			{{ t('openrouter_connector', 'OpenRouter does not offer a model list for this option, so the model lists above are not narrowed down by it. A model whose providers all store prompts fails instead.') }}
+		</p>
 		<NcCheckboxRadioSwitch :model-value="state.zdr"
+			:disabled="reloadingCatalog"
 			type="switch"
-			@update:model-value="onInput({ zdr: $event })">
+			@update:model-value="onZdrChange">
 			{{ t('openrouter_connector', 'Only use zero data retention endpoints') }}
 		</NcCheckboxRadioSwitch>
+		<p class="hint">
+			{{ t('openrouter_connector', 'The model lists above then only offer the models that have such an endpoint. The preference itself is only sent with text tasks; for the other modalities OpenRouter applies what is set in the account.') }}
+		</p>
 		<NcCheckboxRadioSwitch :model-value="state.send_referer"
 			type="switch"
 			@update:model-value="onInput({ send_referer: $event })">
@@ -264,12 +281,15 @@ export default {
 		return {
 			state: loadState('openrouter_connector', 'admin-config'),
 			apiKey: '',
-			switchingEndpoint: false,
+			reloadingCatalog: false,
 			savingKey: false,
 			checkingKey: false,
 			keyInfo: null,
 			keyError: null,
 			catalog: { text_models: [], image_models: [], stt_models: [], tts_models: [] },
+			// what narrowed a list down, per modality, as the backend reports it
+			catalogFilters: { text_models: [], image_models: [], stt_models: [], tts_models: [] },
+			catalogLoaded: { text_models: false, image_models: false, stt_models: false, tts_models: false },
 			loadingCatalog: { text_models: false, image_models: false, stt_models: false, tts_models: false },
 			catalogError: null,
 			refreshingMetadata: false,
@@ -316,22 +336,19 @@ export default {
 			return Object.values(MODEL_KEYS).reduce((count, key) => count + (this.state[key]?.length ?? 0), 0)
 		},
 		/**
-		 * The selected models the catalog of a regional endpoint does not
-		 * carry. Its catalog is the list of what the region can route, so a
-		 * model missing from it cannot answer. On the standard endpoint the
-		 * catalog is not authoritative that way — model IDs may deliberately
-		 * be typed in — so nothing is flagged there. A catalog that could not
-		 * be loaded is skipped, so a failed request does not flag every model.
+		 * The selected models that the filters of a list rule out. Such a list
+		 * is what the settings can actually reach, so a model missing from it
+		 * cannot answer. An unfiltered list is not authoritative that way —
+		 * model IDs may deliberately be typed in — so nothing is flagged
+		 * there, and neither is a list that could not be loaded, so a failed
+		 * request does not flag every model.
 		 *
 		 * @return {string[]} the model IDs
 		 */
 		unavailableModels() {
-			if (this.state.api_endpoint === 'global') {
-				return []
-			}
 			const missing = new Set()
 			for (const key of Object.values(MODEL_KEYS)) {
-				if (!this.catalog[key]?.length) {
+				if (!this.catalogLoaded[key] || !this.catalogFilters[key]?.length) {
 					continue
 				}
 				const available = new Set(this.catalog[key].map(model => model.id))
@@ -342,6 +359,20 @@ export default {
 				}
 			}
 			return [...missing]
+		},
+		/**
+		 * One sentence per filter that narrowed at least one of the lists down
+		 *
+		 * @return {string[]} the sentences, in the order the filters are applied
+		 */
+		activeFilterHints() {
+			const active = new Set(Object.values(MODEL_KEYS).flatMap(key => this.catalogFilters[key] ?? []))
+			const hints = {
+				endpoint: t('openrouter_connector', 'Only the models OpenRouter has onboarded for the selected endpoint are listed.'),
+				zdr: t('openrouter_connector', 'Only the models that have a zero data retention endpoint are listed, because that is what the privacy option below requires.'),
+				key: t('openrouter_connector', 'Only the models the configured API key may use are listed, as OpenRouter narrows them down for the privacy settings and the guardrails of the account.'),
+			}
+			return ['endpoint', 'zdr', 'key'].filter(filter => active.has(filter)).map(filter => hints[filter])
 		},
 		/** The voices of the selected text-to-speech models, as far as they are known */
 		voiceOptions() {
@@ -405,6 +436,8 @@ export default {
 				this.keyInfo = null
 				this.keyError = null
 				showSuccess(successMessage)
+				// the guardrails of a key decide which models it may use
+				await this.loadCatalog(true)
 				if (this.state.api_key_set) {
 					await this.checkKey()
 				}
@@ -447,12 +480,15 @@ export default {
 			try {
 				const url = generateUrl('/apps/openrouter_connector/models/{modality}', { modality })
 				const response = await axios.get(url, { params: refresh ? { refresh: 1 } : {} })
-				this.catalog[key] = response.data.map(model => ({
+				this.catalog[key] = (response.data?.models ?? []).map(model => ({
 					...model,
 					label: model.name && model.name !== model.id ? `${model.name} (${model.id})` : model.id,
 				}))
+				this.catalogFilters[key] = response.data?.filters ?? []
+				this.catalogLoaded[key] = true
 			} catch (error) {
 				console.error(error)
+				this.catalogLoaded[key] = false
 				this.catalogError = t('openrouter_connector', 'Failed to load the OpenRouter model list. Model IDs can still be typed in.') + ' ' + this.errorMessage(error, '')
 			} finally {
 				this.loadingCatalog[key] = false
@@ -470,17 +506,58 @@ export default {
 			if (endpoint === this.state.api_endpoint) {
 				return
 			}
-			this.state.api_endpoint = endpoint
-			this.pendingValues.api_endpoint = endpoint
-			this.debouncedSave.clear()
-			this.switchingEndpoint = true
 			this.keyInfo = null
 			this.keyError = null
+			await this.saveAndReloadCatalog({ api_endpoint: endpoint })
+		},
+
+		/**
+		 * Zero data retention decides which models can answer at all, so the
+		 * lists are reloaded with it, just like an endpoint change
+		 *
+		 * @param {boolean} zdr whether only zero data retention endpoints may be used
+		 */
+		async onZdrChange(zdr) {
+			if (zdr === this.state.zdr) {
+				return
+			}
+			await this.saveAndReloadCatalog({ zdr })
+		},
+
+		/**
+		 * Stores settings the model lists depend on without waiting for the
+		 * debounce and loads the lists again afterwards
+		 *
+		 * @param {object} values the changed settings
+		 */
+		async saveAndReloadCatalog(values) {
+			Object.assign(this.state, values)
+			Object.assign(this.pendingValues, values)
+			this.debouncedSave.clear()
+			this.reloadingCatalog = true
 			try {
 				await this.saveValues()
 				await this.loadCatalog(true)
 			} finally {
-				this.switchingEndpoint = false
+				this.reloadingCatalog = false
+			}
+		},
+
+		/**
+		 * Drops the models the current settings cannot reach from the selection
+		 */
+		removeUnavailableModels() {
+			const unavailable = new Set(this.unavailableModels)
+			const values = {}
+			for (const key of Object.values(MODEL_KEYS)) {
+				const selected = this.state[key] ?? []
+				const kept = selected.filter(id => !unavailable.has(id))
+				if (kept.length !== selected.length) {
+					values[key] = kept
+				}
+			}
+			if (Object.keys(values).length > 0) {
+				this.onInput(values)
 			}
 		},
 
@@ -579,9 +656,15 @@ h3 {
 	max-width: 480px;
 }
 
-.key-info {
+.key-info,
+.filter-hints {
 	margin-top: 4px;
 	padding-inline-start: 20px;
 	list-style: disc;
+}
+
+.filter-hints {
+	max-width: 800px;
+	margin-bottom: 8px;
 }
 </style>

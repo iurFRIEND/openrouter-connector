@@ -17,10 +17,25 @@ use Psr\Log\LoggerInterface;
 /**
  * The OpenRouter model catalog, per modality, cached
  *
+ * Only the models that the current settings can actually reach are listed:
+ * a regional endpoint offers its region, the zero data retention option
+ * narrows the lists down to the models that have such an endpoint, and the
+ * API key adds whatever its account settings and guardrails allow.
+ *
  * @psalm-type CatalogEntry = array{id: string, name: string, input_modalities: list<string>, output_modalities: list<string>, context_length: int|null, pricing: array{prompt: string|null, completion: string|null}, supported_voices: list<string>, free: bool}
+ * @psalm-type Catalog = array{models: list<CatalogEntry>, filters: list<string>}
  */
 class ModelCatalogService {
 	private const CACHE_TTL = 3600;
+
+	/** What narrowed a catalog down, reported to the settings so it can say why a model is missing */
+	public const FILTER_ENDPOINT = 'endpoint';
+	public const FILTER_ZDR = 'zdr';
+	public const FILTER_KEY = 'key';
+
+	/** @var array<string, true>|null the models the key may use, looked up once per request */
+	private ?array $keyScopedModelIds = null;
+	private bool $keyScopedModelIdsLoaded = false;
 
 	public function __construct(
 		private OpenRouterApiService $api,
@@ -37,16 +52,27 @@ class ModelCatalogService {
 	 * @throws OpenRouterApiException
 	 */
 	public function getModels(string $modality, bool $refresh = false): array {
+		return $this->getCatalog($modality, $refresh)['models'];
+	}
+
+	/**
+	 * The models available for a modality, with the filters that were applied
+	 *
+	 * @return Catalog
+	 * @throws OpenRouterApiException
+	 */
+	public function getCatalog(string $modality, bool $refresh = false): array {
 		if (!in_array($modality, Application::MODALITIES, true)) {
 			throw new \InvalidArgumentException('Unknown modality ' . $modality);
 		}
 		$cache = $this->cacheFactory->createDistributed(Application::APP_ID . '-catalog');
-		// each endpoint offers its own set of models, so they are cached apart
-		$cacheKey = 'models-' . $modality . '-' . $this->settings->getApiEndpoint();
+		// the endpoint, the routing options and the key each change what is
+		// offered, so every combination of them is cached on its own
+		$cacheKey = 'models-' . $modality . '-' . $this->cacheSignature();
 		if (!$refresh) {
 			$cached = $cache->get($cacheKey);
-			if (is_array($cached)) {
-				/** @var list<CatalogEntry> $cached */
+			if (is_array($cached) && isset($cached['models'], $cached['filters'])) {
+				/** @var Catalog $cached */
 				return $cached;
 			}
 		}
@@ -56,9 +82,100 @@ class ModelCatalogService {
 			Application::MODALITY_STT => $this->fetchByOutputModality('transcription'),
 			Application::MODALITY_TTS => $this->fetchByOutputModality('speech'),
 		};
+		$filters = [];
+		if ($this->settings->getApiEndpoint() !== Application::API_ENDPOINT_GLOBAL) {
+			$filters[] = self::FILTER_ENDPOINT;
+		}
+		if ($this->settings->isZdrOnly()) {
+			$filters[] = self::FILTER_ZDR;
+		}
+		$allowed = $this->keyScopedModelIds($refresh);
+		if ($allowed !== null) {
+			$models = array_values(array_filter($models, static fn (array $entry): bool => isset($allowed[$entry['id']])));
+			$filters[] = self::FILTER_KEY;
+		}
 		usort($models, static fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
-		$cache->set($cacheKey, $models, self::CACHE_TTL);
-		return $models;
+		$catalog = ['models' => $models, 'filters' => $filters];
+		$cache->set($cacheKey, $catalog, self::CACHE_TTL);
+		return $catalog;
+	}
+
+	/**
+	 * Tells the catalogs of one set of settings from another. The key is part
+	 * of it because its guardrails decide what it may use, but only as a
+	 * digest, so the secret itself is not spread over the cache keys.
+	 */
+	private function cacheSignature(): string {
+		$parts = [$this->settings->getApiEndpoint()];
+		if ($this->settings->isZdrOnly()) {
+			$parts[] = 'zdr';
+		}
+		$apiKey = $this->settings->getApiKey();
+		if ($apiKey !== '') {
+			$parts[] = 'key' . substr(hash('sha256', $apiKey), 0, 12);
+		}
+		return implode('-', $parts);
+	}
+
+	/**
+	 * The IDs of the models the configured key may use, or null when they
+	 * could not be determined, in which case the catalog stays as the
+	 * endpoint returned it. Requests without a key, keys that cannot read the
+	 * list and empty answers all end up as null: leaving a model in the list
+	 * that a guardrail happens to block is much less disruptive than emptying
+	 * every list over a failed request.
+	 *
+	 * @return array<string, true>|null
+	 */
+	private function keyScopedModelIds(bool $refresh): ?array {
+		if (!$this->settings->hasApiKey()) {
+			return null;
+		}
+		if ($this->keyScopedModelIdsLoaded && !$refresh) {
+			return $this->keyScopedModelIds;
+		}
+		$this->keyScopedModelIdsLoaded = true;
+		$this->keyScopedModelIds = null;
+		$cache = $this->cacheFactory->createDistributed(Application::APP_ID . '-catalog');
+		$cacheKey = 'key-models-' . $this->cacheSignature();
+		$ids = $refresh ? null : $cache->get($cacheKey);
+		if (!is_array($ids)) {
+			try {
+				$ids = [];
+				// the default of this list is text only, so every modality is asked for
+				foreach ($this->api->listUserModels(['output_modalities' => 'all']) as $raw) {
+					if (is_string($raw['id'] ?? null) && $raw['id'] !== '') {
+						$ids[] = $raw['id'];
+					}
+				}
+			} catch (\Throwable $e) {
+				$this->logger->info('Could not load the models the OpenRouter key may use: ' . $e->getMessage());
+				return null;
+			}
+			$cache->set($cacheKey, $ids, self::CACHE_TTL);
+		}
+		if ($ids === []) {
+			$this->logger->warning('OpenRouter reported no model at all for the configured key, so the model lists are not narrowed down by it');
+			return null;
+		}
+		/** @var list<string> $ids */
+		$this->keyScopedModelIds = array_fill_keys($ids, true);
+		return $this->keyScopedModelIds;
+	}
+
+	/**
+	 * Adds the filters OpenRouter can apply to a model list itself
+	 *
+	 * @param array<string, string> $query
+	 * @return array<string, string>
+	 */
+	private function listQuery(array $query = []): array {
+		if ($this->settings->isZdrOnly()) {
+			// leaves only the models that have at least one zero data
+			// retention endpoint; the others cannot answer such a request
+			$query['zdr'] = 'true';
+		}
+		return $query;
 	}
 
 	/**
@@ -126,7 +243,7 @@ class ModelCatalogService {
 	 */
 	private function fetchTextModels(): array {
 		$models = [];
-		foreach ($this->api->listModels() as $raw) {
+		foreach ($this->api->listModels($this->listQuery()) as $raw) {
 			$entry = self::normalize($raw);
 			if ($entry === null) {
 				continue;
@@ -151,21 +268,23 @@ class ModelCatalogService {
 				$models[] = $entry;
 			}
 		}
-		if ($this->settings->getApiEndpoint() === Application::API_ENDPOINT_GLOBAL) {
+		if ($this->settings->getApiEndpoint() === Application::API_ENDPOINT_GLOBAL && !$this->settings->isZdrOnly()) {
 			return $models;
 		}
-		// Unlike "models", the dedicated "images/models" list is not narrowed
-		// down to what a regional endpoint has onboarded, so the two are
+		// Unlike "models", the dedicated "images/models" list carries neither
+		// the region of the endpoint nor the routing filters, so the two are
 		// intersected here. A regional endpoint fails a request rather than
-		// routing it out of its region, so the models it does not carry would
-		// only end up as providers that cannot answer.
-		$inRegion = [];
-		foreach ($this->api->listModels(['output_modalities' => 'image']) as $raw) {
+		// routing it out of its region, and a model without a zero data
+		// retention endpoint fails such a request as well, so the models the
+		// general list leaves out would only end up as providers that cannot
+		// answer.
+		$available = [];
+		foreach ($this->api->listModels($this->listQuery(['output_modalities' => 'image'])) as $raw) {
 			if (is_string($raw['id'] ?? null)) {
-				$inRegion[$raw['id']] = true;
+				$available[$raw['id']] = true;
 			}
 		}
-		return array_values(array_filter($models, static fn (array $entry): bool => isset($inRegion[$entry['id']])));
+		return array_values(array_filter($models, static fn (array $entry): bool => isset($available[$entry['id']])));
 	}
 
 	/**
@@ -174,7 +293,7 @@ class ModelCatalogService {
 	 */
 	private function fetchByOutputModality(string $outputModality): array {
 		$models = [];
-		foreach ($this->api->listModels(['output_modalities' => $outputModality]) as $raw) {
+		foreach ($this->api->listModels($this->listQuery(['output_modalities' => $outputModality])) as $raw) {
 			$entry = self::normalize($raw);
 			if ($entry !== null && in_array($outputModality, $entry['output_modalities'], true)) {
 				$models[] = $entry;

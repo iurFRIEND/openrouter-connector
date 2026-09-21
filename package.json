@@ -1,6 +1,6 @@
 {
   "name": "openrouter-connector",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Connect the Nextcloud Assistant to hundreds of AI models through OpenRouter",
   "private": true,
   "type": "module",
