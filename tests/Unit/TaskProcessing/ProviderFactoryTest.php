@@ -57,7 +57,7 @@ class ProviderFactoryTest extends TestCase {
 		];
 		$providers = $this->createFactory($store)->getProviders();
 
-		$textTaskTypes = count(ProviderFactory::TEXT_PROVIDER_CLASSES);
+		$textTaskTypes = count(ProviderFactory::getTextProviderClasses());
 		$visionTaskTypes = count(ProviderFactory::VISION_PROVIDER_CLASSES);
 		$this->assertCount(2 * $textTaskTypes + $visionTaskTypes + 3, $providers);
 
@@ -80,6 +80,33 @@ class ProviderFactoryTest extends TestCase {
 		$summary = $providers[array_search(TextToTextSummary::ID, array_map(static fn ($p) => $p->getTaskTypeId(), $providers), true)];
 		$this->assertSame('openrouter_connector-openai_gpt-5-mini-text2text:summary', $summary->getId());
 		$this->assertSame('OpenAI: GPT-5 Mini (OpenRouter)', $summary->getName());
+	}
+
+	/**
+	 * The server asks every provider for its ID and task type, and that fails
+	 * for a provider whose task type class this server version does not have.
+	 * Which of the optional task types exist depends on the installed
+	 * nextcloud/ocp version, so CI runs this against every supported one.
+	 */
+	public function testOnlyTaskTypesOfThisServerVersionAreServed(): void {
+		$store = ['text_models' => ['some/model']];
+		$providers = $this->createFactory($store)->getProviders();
+
+		$taskTypeIds = array_map(static fn (AbstractProvider $provider): string => $provider->getTaskTypeId(), $providers);
+		foreach (ProviderFactory::OPTIONAL_TEXT_PROVIDER_CLASSES as $class => $taskTypeClass) {
+			$built = array_values(array_filter($providers, static fn (AbstractProvider $provider): bool => $provider instanceof $class));
+			if (class_exists($taskTypeClass)) {
+				$this->assertCount(1, $built, $class . ' serves ' . $taskTypeClass);
+				$this->assertSame(constant($taskTypeClass . '::ID'), $built[0]->getTaskTypeId());
+			} else {
+				$this->assertSame([], $built, $class . ' is left out without ' . $taskTypeClass);
+			}
+		}
+		$this->assertSame($taskTypeIds, array_unique($taskTypeIds), 'one provider per task type and model');
+		$this->assertCount(count(ProviderFactory::TEXT_PROVIDER_CLASSES), array_intersect(
+			array_map(static fn (AbstractProvider $provider): string => $provider::class, $providers),
+			ProviderFactory::TEXT_PROVIDER_CLASSES,
+		), 'the task types every supported version has are always served');
 	}
 
 	public function testUnknownModelsAreNamedByTheirId(): void {

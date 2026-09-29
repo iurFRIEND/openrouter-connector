@@ -16,6 +16,7 @@ use OCA\OpenRouterConnector\Service\OpenRouterApiService;
 use OCA\OpenRouterConnector\Service\SettingsService;
 use OCA\OpenRouterConnector\TaskProcessing\AudioToTextProvider;
 use OCA\OpenRouterConnector\TaskProcessing\ChangeToneProvider;
+use OCA\OpenRouterConnector\TaskProcessing\ImproveProvider;
 use OCA\OpenRouterConnector\TaskProcessing\SummaryProvider;
 use OCA\OpenRouterConnector\TaskProcessing\TextToImageProvider;
 use OCA\OpenRouterConnector\TaskProcessing\TextToSpeechProvider;
@@ -145,6 +146,37 @@ class ProvidersTest extends TestCase {
 		$this->assertContains('friendlier', array_map(static fn ($v) => $v->getValue(), $provider->getInputShapeEnumValues()['tone']));
 		$output = $provider->process(null, ['input' => 'Give me the report.', 'tone' => 'friendlier'], self::progress());
 		$this->assertSame(['output' => 'Could you please share the report?'], $output);
+	}
+
+	public function testImproveFollowsTheInstructions(): void {
+		$this->api->expects($this->once())->method('createChatCompletion')
+			->willReturnCallback(function (string $model, array $messages): array {
+				$this->assertSame('system', $messages[0]['role']);
+				$this->assertStringEndsWith("Instructions:\nMake it more polite", $messages[0]['content']);
+				$this->assertSame(['role' => 'user', 'content' => 'Send me the report.'], $messages[1]);
+				return self::completion('Could you please send me the report?');
+			});
+		$output = $this->createProvider(ImproveProvider::class)->process(null, [
+			'input' => 'Send me the report.',
+			'instructions' => ' Make it more polite ',
+		], self::progress());
+		$this->assertSame(['output' => 'Could you please send me the report?'], $output);
+	}
+
+	public function testImproveWithoutInstructionsImprovesInGeneral(): void {
+		$this->api->expects($this->once())->method('createChatCompletion')
+			->willReturnCallback(function (string $model, array $messages): array {
+				$this->assertStringEndsWith("Instructions:\nCorrect spelling, grammar and punctuation, and make the text clearer and easier to read.", $messages[0]['content']);
+				return self::completion('This is a text.');
+			});
+		$output = $this->createProvider(ImproveProvider::class)->process(null, ['input' => 'this are a text', 'instructions' => '  '], self::progress());
+		$this->assertSame(['output' => 'This is a text.'], $output);
+	}
+
+	public function testImproveNeedsInstructions(): void {
+		$this->api->expects($this->never())->method('createChatCompletion');
+		$this->expectException(ProcessingException::class);
+		$this->createProvider(ImproveProvider::class)->process(null, ['input' => 'text'], self::progress());
 	}
 
 	public function testLongTextsAreProcessedChunkByChunk(): void {

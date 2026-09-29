@@ -17,11 +17,16 @@ so different models can be assigned to different tasks in the **Artificial Intel
 
 | Modality of the selected model | Assistant features |
 | --- | --- |
-| Text | Free prompt, chat, chat with tools (agent), summarize, headline, topics, context write, reformulate, proofread, change tone, formalization, simplification, reformat paragraphs, translate, emoji |
+| Text | Free prompt, chat, chat with tools (agent), summarize, headline, topics, context write, reformulate, proofread, change tone, formalization, simplification, reformat paragraphs, improve text, translate, emoji |
 | Text with image input | Additionally: analyze images, optical character recognition (OCR) of images and PDF files |
 | Image generation | Generate images (dedicated OpenRouter image API) |
 | Speech-to-text | Transcribe audio files (dedicated OpenRouter transcription API) |
 | Text-to-speech | Generate speech (dedicated OpenRouter speech API) |
+
+Some of these tasks depend on the Nextcloud version: *reformat paragraphs* exists since Nextcloud 34 and
+*improve text* since Nextcloud 35. The app only offers what the running Nextcloud version has. From Nextcloud 35
+on, the Assistant offers *improve text* instead of reformulate, formalization and simplification and no longer
+lists headline, topics, emoji and reformat paragraphs; the app keeps providing them for the other apps that use them.
 
 Further features:
 
@@ -35,8 +40,8 @@ Further features:
 
 ## Requirements
 
-* Nextcloud 34
-* PHP 8.2 to 8.5
+* Nextcloud 33, 34 or 35
+* PHP 8.2 to 8.5 (Nextcloud 35 itself needs at least PHP 8.3)
 * The [Assistant app](https://apps.nextcloud.com/apps/assistant) to use the features from the user interface
 * An [OpenRouter](https://openrouter.ai) account with an API key and credits (a few models are free)
 
@@ -162,6 +167,10 @@ sudo -u www-data php occ background-job:worker 'OC\TaskProcessing\SynchronousBac
 * `lib/TaskProcessing/ProviderFactory.php` builds one provider per (selected model, task type) from the app
   configuration alone; `TaskProcessingProviderListener` hands them to the server through the
   `GetTaskProcessingProvidersEvent`.
+* Providers for task types that only newer Nextcloud versions have are listed in
+  `ProviderFactory::OPTIONAL_TEXT_PROVIDER_CLASSES` together with the task type class they need, and are only built
+  where that class exists. The server asks every provider for its task type, and a missing class there would break
+  task processing for the whole instance.
 * Provider IDs are derived from the model ID and the task type (`openrouter_connector-<model>-<task type>`), so the
   assignments in the AI settings survive restarts and updates.
 * `lib/Service/OpenRouterApiService.php` talks to the OpenRouter API (`chat/completions`, `images`,
@@ -180,6 +189,16 @@ make test              # PHPUnit unit tests
 ```
 
 The frontend is built with Vite (`@nextcloud/vite-config`) into `js/`, which is not committed.
+
+`composer install` installs the public API (`nextcloud/ocp`) of the lowest supported Nextcloud version, so psalm and
+the tests flag anything that version lacks. CI runs psalm and PHPUnit against the API of every supported version. To
+check against another version locally, without committing the change:
+
+```bash
+composer require --dev nextcloud/ocp:dev-stable35 --ignore-platform-reqs
+composer run psalm && composer run test:unit
+git checkout composer.json composer.lock && composer install
+```
 
 ### Releasing to the App Store
 

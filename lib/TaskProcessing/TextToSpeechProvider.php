@@ -20,6 +20,10 @@ use OCP\TaskProcessing\TaskTypes\TextToSpeech;
 
 /**
  * Speech generation with OpenRouter's dedicated text-to-speech API
+ *
+ * Nextcloud 35 deprecates ISynchronousWatermarkingProvider in favour of
+ * ISynchronousOptionsAwareProvider, which Nextcloud 33 and 34 lack. Nextcloud
+ * 35 still passes the watermark option through the older interface.
  */
 class TextToSpeechProvider extends AbstractProvider implements ISynchronousWatermarkingProvider {
 	#[\Override]
