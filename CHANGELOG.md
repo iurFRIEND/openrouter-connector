@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.4.0 - 2026-09-29
+
+### Added
+
+- German, French, Dutch and Spanish translations of the admin settings and of the texts the providers show in the
+  Assistant: option names, selectable values and error messages. German comes in both forms of address, informal
+  (`de`) and formal (`de_DE`, "Sie"). Languages without a translation keep showing English.
+- The name, summary and description of the app are translated as well, so the App Store and the app management show
+  them in these languages.
+
 ## 0.3.0 - 2026-09-29
 
 ### Added
