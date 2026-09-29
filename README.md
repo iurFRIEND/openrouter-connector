@@ -37,6 +37,7 @@ Further features:
 * Connection check showing the label, usage and limit of the configured key
 * Long texts are split into chunks and processed chunk by chunk
 * Rate-limit aware: `429`/`503` responses are retried in background workers according to `Retry-After`
+* Available in English, German (informal and formal), French, Dutch and Spanish
 
 ## Requirements
 
@@ -199,6 +200,30 @@ composer require --dev nextcloud/ocp:dev-stable35 --ignore-platform-reqs
 composer run psalm && composer run test:unit
 git checkout composer.json composer.lock && composer install
 ```
+
+### Translations
+
+The app is available in English (the source language), German (`de`, informal, and `de_DE`, formal "Sie"), French
+(`fr`), Dutch (`nl`) and Spanish (`es`). Every other language falls back to English.
+
+Texts go through Nextcloud's translation functions: `$this->l->t()` in PHP and `t('openrouter_connector', …)` or
+`n('openrouter_connector', …)` in the Vue components. The translations live in `l10n/`, one pair of files per
+language: `<language>.json` is read by the server (PHP) and `<language>.js` by the browser. Both carry the same
+content and have to be kept in sync, `make test` checks that.
+
+* The key is the English source string exactly as it appears in the code. Plural keys look like
+  `_singular_::_plural_` and carry one form per `nplurals` of the language. French and Spanish have three forms in
+  the header, like Nextcloud's own files, but the frontend only tells singular and plural apart, so their second and
+  third form are the same.
+* Placeholders (`%s`, `%d`, `%n`, `{name}`) have to stay as they are.
+* Do not use non-breaking spaces, `&`, `<` or `>` in a translation. `@nextcloud/l10n` sanitizes every translated
+  text, which turns them into entities that Vue then prints literally.
+* A string that is missing in a language is shown in English, so new strings can be translated later.
+* To add a language, copy an existing pair of files, translate it and take the plural rule from Nextcloud's own
+  `core/l10n/<language>.json`.
+
+The name, summary and description shown in the App Store and in the app management come from `appinfo/info.xml`
+(`<summary lang="…">`, `<description lang="…">`).
 
 ### Releasing to the App Store
 
