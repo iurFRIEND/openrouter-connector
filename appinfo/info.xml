@@ -19,7 +19,8 @@ different tasks in the **Artificial Intelligence** admin settings.
 The following Assistant features are provided, depending on the modality of the selected models:
 
 * **Text models**: free prompt, chat, chat with tools (agent support), summarize, headline, topics, context write,
-  reformulate, proofread, change tone, formalization, simplification, reformat paragraphs, translate and emoji generation.
+  reformulate, proofread, change tone, formalization, simplification, reformat paragraphs (since Nextcloud 34),
+  improve text (since Nextcloud 35), translate and emoji generation.
   Models that accept image input additionally provide image analysis and optical character recognition (OCR).
 * **Image models**: image generation via the dedicated OpenRouter image API.
 * **Speech-to-text models**: audio transcription.
@@ -63,7 +64,7 @@ Negative:
 
 Learn more about the Nextcloud Ethical AI Rating [in the Nextcloud blog](https://nextcloud.com/blog/nextcloud-ethical-ai-rating/).
 ]]></description>
-	<version>0.2.0</version>
+	<version>0.3.0</version>
 	<licence>agpl</licence>
 	<author mail="it@iurfriend.com" homepage="https://www.iurfriend.com">iurFRIEND</author>
 	<namespace>OpenRouterConnector</namespace>
@@ -79,7 +80,7 @@ Learn more about the Nextcloud Ethical AI Rating [in the Nextcloud blog](https:/
 	<screenshot>https://raw.githubusercontent.com/iurFRIEND/openrouter-connector/main/screenshots/admin-settings.png</screenshot>
 	<dependencies>
 		<php min-version="8.2" max-version="8.5"/>
-		<nextcloud min-version="34" max-version="34"/>
+		<nextcloud min-version="33" max-version="35"/>
 	</dependencies>
 	<settings>
 		<admin>OCA\OpenRouterConnector\Settings\Admin</admin>

@@ -16,6 +16,8 @@ use OCA\OpenRouterConnector\Service\OpenRouterApiService;
 use OCA\OpenRouterConnector\Service\SettingsService;
 use OCP\IL10N;
 use OCP\TaskProcessing\IProvider;
+use OCP\TaskProcessing\TaskTypes\TextToTextImprove;
+use OCP\TaskProcessing\TaskTypes\TextToTextReformatParagraphs;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -27,7 +29,14 @@ use Psr\Log\LoggerInterface;
  * the server through the TaskProcessingProviderListener.
  */
 class ProviderFactory {
-	/** @var list<class-string<AbstractTextProvider>> */
+	/**
+	 * Text providers for the task types every supported server version has.
+	 * Nextcloud 35 deprecates reformulation, formalization and simplification
+	 * in favour of improving a text and hides them in the Assistant, but still
+	 * runs them for other apps.
+	 *
+	 * @var list<class-string<AbstractTextProvider>>
+	 */
 	public const TEXT_PROVIDER_CLASSES = [
 		TextToTextProvider::class,
 		TextToTextChatProvider::class,
@@ -41,9 +50,24 @@ class ProviderFactory {
 		ChangeToneProvider::class,
 		FormalizationProvider::class,
 		SimplificationProvider::class,
-		ReformatParagraphsProvider::class,
 		EmojiProvider::class,
 		TranslateProvider::class,
+	];
+
+	/**
+	 * Text providers for task types that not every supported server version
+	 * has, with the task type class they need. A provider whose task type the
+	 * server lacks must not be handed to it: asking such a provider for its
+	 * ID already fails, and that takes down the task processing of the whole
+	 * instance.
+	 *
+	 * @var array<class-string<AbstractTextProvider>, string>
+	 */
+	public const OPTIONAL_TEXT_PROVIDER_CLASSES = [
+		// since Nextcloud 34
+		ReformatParagraphsProvider::class => TextToTextReformatParagraphs::class,
+		// since Nextcloud 35
+		ImproveProvider::class => TextToTextImprove::class,
 	];
 
 	/** @var list<class-string<AbstractTextProvider>> */
@@ -68,9 +92,10 @@ class ProviderFactory {
 	 * @return list<IProvider>
 	 */
 	public function getProviders(): array {
+		$textProviderClasses = self::getTextProviderClasses();
 		$providers = [];
 		foreach ($this->settings->getModels(Application::MODALITY_TEXT) as $model) {
-			foreach (self::TEXT_PROVIDER_CLASSES as $class) {
+			foreach ($textProviderClasses as $class) {
 				$providers[] = $this->build($class, $model);
 			}
 			if (in_array('image', $this->settings->getModelInputModalities($model), true)) {
@@ -89,6 +114,21 @@ class ProviderFactory {
 			$providers[] = $this->build(TextToSpeechProvider::class, $model);
 		}
 		return $providers;
+	}
+
+	/**
+	 * The text providers whose task types the running server version has
+	 *
+	 * @return list<class-string<AbstractTextProvider>>
+	 */
+	public static function getTextProviderClasses(): array {
+		$classes = self::TEXT_PROVIDER_CLASSES;
+		foreach (self::OPTIONAL_TEXT_PROVIDER_CLASSES as $class => $taskTypeClass) {
+			if (class_exists($taskTypeClass)) {
+				$classes[] = $class;
+			}
+		}
+		return $classes;
 	}
 
 	/**

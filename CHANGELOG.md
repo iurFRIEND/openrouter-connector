@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.3.0 - 2026-09-29
+
+### Added
+
+- Support for Nextcloud 33 and 35, in addition to Nextcloud 34. The app offers only the task types the running
+  Nextcloud version has: *reformat paragraphs* exists since Nextcloud 34, and offering it on Nextcloud 33 would break
+  task processing there for every app.
+- *Improve text* (`core:text2text:improve`) on Nextcloud 35, where the Assistant offers it instead of reformulation,
+  formalization and simplification. The text is improved according to the user's instructions.
+
 ## 0.2.0 - 2026-09-21
 
 ### Added
